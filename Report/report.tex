@@ -107,14 +107,33 @@ Additionally, the dataset contains road names that differ from those used in off
 
 To ensure proper prioritization of events, an event hierarchy must be established, as some incidents are more critical than others. If the model fails to respect this hierarchy, we will experiment with \textit{Chain-of-Thought Prompting} before fine-tuning the model. This technique introduces step-by-step reasoning, helping the model determine which incidents should be reported first.
 
-\section*{Data}
-The primary dataset is the traffic\_reports\_2022\_2023\_2024.xlsx file from the \textit{promet.si} portal, which contains 170,823 traffic reports from the years 2022, 2023, and 2024, organized into 27 attributes, as illustrated in ~Figure \ref{fig:traffic_reports_analysis}. Based on the findings in \cite{bjorgo2024automating}, incorporating diverse data sources is essential. To enhance our dataset, we could integrate additional factors such as weather conditions and seasonal variations.
+\section*{Data Analysis}
+The primary dataset is the traffic\_reports\_2022\_2023\_2024.xlsx file from the \textit{promet.si} portal, which contains 170,823 traffic reports from the years 2022, 2023, and 2024, organized into 27 attributes, as illustrated in ~Figure \ref{fig:traffic_reports_analysis}, following with their descriptions.
 
 \begin{figure}[ht]\centering
 	\includegraphics[width=\linewidth]{fig/traffic_reports_analysis.pdf}
 	\caption{Project's primary dataset visualization.}
 	\label{fig:traffic_reports_analysis}
 \end{figure}
+
+\begin{description}
+\item [LegacyId] Unique numerical identifier for the traffic report.
+\item [Datum] Timestamp of when the traffic report was logged.
+\item [Operater] Name and affiliation of the traffic report operator.
+\item [A1] Very important traffic alert message in Slovenian.
+\item [B1] Important traffic information in Slovenian.
+\item [C1] Less important information in Slovenian.
+\item [A2, B2, C2] English versions of A1, B1, C1.
+\item [Title+ContentPomembnoSLO] Title and content of important Slovenian traffic information.
+\item [Title+ContentNesreceSLO] Title and content related to road accidents.
+\item [Title+ContentZastojiSLO] Title and content describing traffic congestion or delays.
+\item [Title+ContentVremeSLO] Title and content related to weather conditions or weather-related traffic impacts.
+\item [Title+ContentOvireSLO] Title and content concerning traffic obstacles (vehicle breakdowns, road hazards).
+\item [Title+ContentDeloNaCestiSLO] Title and content related to roadworks or construction affecting traffic.
+\item [Title+ContentOpozorilaSLO] Title and content containing public warnings, announcements, or safety reminders.
+\item [Title+ContentMednarodneInformacijeSLO] Title and content regarding international or cross-border traffic information.
+\item [Title+ContentSplosnoSLO] Title and content of general traffic information not covered by other specific categories.
+\end{description}
 
 
 \clearpage
