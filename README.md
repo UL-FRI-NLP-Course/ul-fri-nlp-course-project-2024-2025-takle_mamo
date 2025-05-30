@@ -14,13 +14,18 @@ With the advancement of large language models (LLMs), there is an opportunity to
 **`/Report`** contains temporary project report written in LaTeX.   
 **`/Models`** is output folder for trained models. They are too big to be included in the repository, so you will need to get them from drive, see section [Generating Text](#generating-text).
 
+## Required Python Packages
+The required python packages are listed in the [requirements.txt](Code%2Frequirements.txt) file. You can install them using pip:
+
+```pip install -r requirements.txt```
+
 ## Generating the Datasets
 To generate the datasets, we use the [generate_datasets.ipynb](Code%2Fgenerate_datasets.ipynb) notebook. This script processes the raw traffic data from the `Data` folder and generates structured datasets.
-After running the notebook it should have generated the following files:
-- `train_dataset.jsonl`
-- `valid_dataset.jsonl`
-- `test_dataset.jsonl`
-- `train_dataset_generated_reports.jsonl`
+Running the notebook generates following files (they are also available on OneDrive):
+- [train_dataset.jsonl](https://unilj-my.sharepoint.com/:u:/g/personal/mc6460_student_uni-lj_si/EWqrfb_Hu15OqeVNs2mw7yEBb-axmBkSEHd7cwzetP_Cug?e=FPLqqW)
+- [valid_dataset.jsonl](https://unilj-my.sharepoint.com/:u:/g/personal/mc6460_student_uni-lj_si/EdfU2XlWuuREibTrJu2sgegB8m-Q49zMI80_HbvJeXVn_w?e=a2Ok8K)
+- [test_dataset.jsonl](https://unilj-my.sharepoint.com/:u:/g/personal/mc6460_student_uni-lj_si/EdfkonJ2e6NCu85s0dkP5FYBzgnglji7ttw-G12YcaBM1w?e=KBkeH1)
+- [train_dataset_generated_reports.jsonl](https://unilj-my.sharepoint.com/:u:/g/personal/mc6460_student_uni-lj_si/EfsLnoVi-w5GhtMXnwomKRQB1VP61ZAVi0mHi6L7MBdXmw?e=5RLysx)
 
 ## Training the Model
 To train the model use [train.py](Code%2Ftrain.py). It takes the following arguments:
