@@ -11,4 +11,54 @@ With the advancement of large language models (LLMs), there is an opportunity to
 **`/Data`** contains project raw data (used for fine-tuning, evaluation, ...).  
 **`/Images`** is output folder for project source code.  
 **`/Instructions`** contains given project instructions and traffic report rules.  
-**`/Report`** contains temporary project report written in LaTeX.  
+**`/Report`** contains temporary project report written in LaTeX.   
+**`/Models`** is output folder for trained models. They are too big to be included in the repository, so you will need to get them from drive, see section [Generating Text](#generating-text).
+
+## Generating the Datasets
+To generate the datasets, we use the [generate_datasets.ipynb](Code%2Fgenerate_datasets.ipynb) notebook. This script processes the raw traffic data from the `Data` folder and generates structured datasets.
+After running the notebook it should have generated the following files:
+- `train_dataset.jsonl`
+- `valid_dataset.jsonl`
+- `test_dataset.jsonl`
+- `train_dataset_generated_reports.jsonl`
+
+## Training the Model
+To train the model use [train.py](Code%2Ftrain.py). It takes the following arguments:
+- **model_name**: Name of the base model to train. Default is `cjvt/GaMS-9B-Instruct` which we used in our project.
+- **output_dir**: Directory to save the trained model. Required.
+- **dataset**: Path to the training dataset in JSONL format. Required. Use the train datasets generated in the previous step.
+- **max_steps**: Maximum number of training steps. Required.
+
+Example command to train the model:
+
+```python train.py --output_dir ./models/original_reports --dataset train_dataset.jsonl --max_steps 50000```
+
+```python train.py --output_dir ./models/generated_reports --dataset train_dataset_generated_reports.jsonl --max_steps 50000```
+
+## Generating Text
+To generate text using the model use [eval.py](Code%2Feval.py). It takes the following arguments:
+- **model_name**: Name of the base model to train. Default is `cjvt/GaMS-9B-Instruct` which we used in our project.
+- **trained_model_path**: Path to the trained model. To evaluate only base model, set to "None". The path must be a folder which contains `adapter_config.json` and `adapter_model.safetensors`.
+- **dataset**: Path to the training dataset in JSONL format. Required. Use the test dataset generated in the previous step.
+- **output_path**: Path to file where evaluation results will be saved. Default is `eval_results.csv`.
+
+Trained model for original reports is available on [OneDrive](https://unilj-my.sharepoint.com/:u:/g/personal/mc6460_student_uni-lj_si/Ecn0hprHjCxPi96hwJWAFfkBoOeJlw4tSBkBCxeqo6Uj0g?e=ZfWsax).
+
+Trained model for gemini generated reports is available on [OneDrive](https://unilj-my.sharepoint.com/:u:/g/personal/mc6460_student_uni-lj_si/Ee568ZQ-nQZKtnfIcmPHWWcBnWSqDd-wpiibAgm1WSmRhw?e=xJ3SlX).
+
+Extract the files to `Models/original_reports` and `Models/generated_reports` folders respectively.
+
+[eval.py](Code%2Feval.py) will print the prompt currently being evaluated and the generated text. It will also save the results to the specified output path.
+Example command to evaluate the model:
+
+```python eval.py --trained_model_path ./Models/original_reports --dataset test_dataset.jsonl --output_path eval_results_original.csv```
+
+```python eval.py --trained_model_path ./Models/generated_reports --dataset test_dataset.jsonl --output_path eval_results_generated.csv```
+
+```python eval.py --trained_model_path "None" --dataset test_dataset.jsonl --output_path eval_results_base_gams.csv```
+
+## Evaluation
+Evaluation in done in [eval_bert_score.ipynb](Code%2Feval_bert_score.ipynb) notebook. It will calculate the BERTScore for each of the generated reports and print them out.
+
+The notebook assumes that you have all of the results from the previous step in the `Code` folder. If you are missing any of the files, you can comment out the code that loads them and run the notebook again.
+
