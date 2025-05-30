@@ -58,7 +58,7 @@
 %----------------------------------------------------------------------------------------
 
 \Abstract{
-Traffic reporting at RTV Slovenija is currently a manual process that relies on student workers compiling structured reports from the \textit{promet.si} portal for bi-hourly broadcasts. This workflow is time-consuming and susceptible to human error. In this project, we investigate the potential of automating traffic news generation using large language models (LLMs). We explore several multilingual LLMs and evaluate their suitability for generating structured Slovenian traffic reports based on real-world data. Our methodology involves data preprocessing, prompt engineering techniques such as Role-Based and Few-Shot Prompting, and aligning data from structured traffic logs with their corresponding \texttt{.rtf} reports. A key challenge arises from inconsistencies between these two data sources, likely due to the use of additional, undocumented inputs in the original report generation. We describe our pipeline for linking and preprocessing the data, propose a framework for automatic and semi-automatic evaluation, and outline steps for future work focused on improving data alignment and testing advanced prompting strategies with the GaMS language model.
+Traffic reporting at RTV Slovenija is currently a manual process that relies on student workers compiling structured reports from the \textit{promet.si} portal for bi-hourly broadcasts. This workflow is time-consuming and susceptible to human error. In this project, we investigate the potential of automating traffic news generation using large language models (LLMs). We explore several multilingual LLMs and evaluate their suitability for generating structured Slovenian traffic reports based on real-world data. Our methodology involves data preprocessing, prompt engineering techniques such as Role-Based and Few-Shot Prompting, and aligning data from structured traffic logs with their corresponding \texttt{.rtf} reports. A key challenge arises from inconsistencies between these two data sources, likely due to the use of additional, undocumented inputs in the original report generation. We describe our pipeline for linking and preprocessing the data, propose a framework for automatic evaluation, and outline steps for future work focused on improving data alignment and testing advanced prompting strategies with the GaMS language model.
 }
 
 %----------------------------------------------------------------------------------------
@@ -86,33 +86,166 @@ With the advancement of large language models (LLMs), there is an opportunity to
 \section*{Related Work and Existing Solutions}
 In their master's thesis, Bjørgo and Lundegaard explored the automation of traffic incident reporting. They developed a system that collects real-time traffic data, processes it to identify incidents, and automatically generates reports for dissemination to the public and relevant authorities. Their work provides a detailed description of approaches that could be highly beneficial to our project \cite{bjorgo2024automating}.
 
+
+
+
+\section*{Methods}
+
 \subsection*{LLM Selection}
 
-For this project, we consider three potential LLMs: \textit{LLaMA}, \textit{FLAN-T5}, and \textit{Bloom}. These models have been pre-trained on multilingual datasets, including Slovenian text, enabling them to process Slovenian-language prompts. However, none of these models have been specifically trained on Slovenian traffic data, making fine-tuning essential for achieving optimal performance.
+For this project, we focus on two large language models (LLMs): \textit{GaMS-9B-Instruct} and \textit{Gemini-2.0-flash}. \textit{GaMS-9B-Instruct} is based on Google’s Gemma 2 model family and was pretrained on Slovene and English corpora. \textit{Gemini-2.0-flash}, developed by Google DeepMind, is part of a broader suite of advanced AI models pretrained on multilingual datasets. For simplicity, we will refer to this model as \textit{Gemini}.
 
-Both \textit{LLaMA} and \textit{FLAN-T5} demonstrate strong reasoning capabilities, making them well-suited for structured traffic report generation. In contrast, \textit{Bloom} is less effective in reasoning tasks, which may lead to lower performance when applying \textit{Chain-of-Thought Prompting}.
+\subsection*{Data Analysis}
 
-For evaluation, we think about combination of automatic and semi-automatic evaluation criteria. Automatic evaluation quantitatively assesses LLM outputs without human intervention. For this, we employ algorithms such as \textit{BLEU}, which measures similarity to reference texts, and \textit{ROUGE}, which evaluates recall-based overlap.
-However, for a more comprehensive assessment, human involvement is essential. Therefore, we incorporate semi-automatic evaluation, leveraging AI-assisted scoring. Specifically, we use another LLM, to grade generated outputs based on predefined criteria. Each score is then manually reviewed and adjusted as needed to ensure accuracy.
+We analyzed the dataset contained in the Excel file \textsc{traffic\_reports\_2022\_2023\_2024.xlsx}, obtained from the \textit{promet.si} portal. The file comprises a total of 170{,}823 traffic reports from the years 2022, 2023, and 2024, organized across 27 attributes, each accompanied by a corresponding description.
+
+Due to a significant amount of missing or irrelevant data, we reduced the number of attributes to the following:
+\begin{itemize}
+    \item \texttt{Datum}
+    \item \texttt{A1}, \texttt{B1}
+    \item \texttt{ContentPomembnoSLO}
+    \item \texttt{ContentNesreceSLO}
+    \item \texttt{ContentZastojiSLO}
+    \item \texttt{ContentVremeSLO}
+    \item \texttt{ContentOvireSLO}
+    \item \texttt{ContentDeloNaCestiSLO}
+    \item \texttt{ContentOpozorilaSLO}
+    \item \texttt{ContentMednarodneInformacijeSLO}
+    \item \texttt{ContentSplosnoSLO}
+\end{itemize}
+
+Based on this structured subset of data, the language model (LLM) is expected to generate the final traffic report.
+
+
+Our second dataset consists of reference reports. It includes 28{,}037 \texttt{.rtf} files, each containing a desired output report produced by RTV Slovenija. These reports were collected on a monthly basis over the years 2022, 2023, and 2024.
+
+
+\subsection*{Data Preprocessing}
+We introduced a new attribute in the Excel file, \textcolor{SkyBlue}{\textbf{RTF\_file\_name}}, which enables each traffic record to be linked to its corresponding \texttt{.rtf} file based on the report date.
+
+The dataset obtained from \textit{promet.si} required additional preprocessing, as many of its fields contained embedded HTML content. Similarly, the reports extracted from the \texttt{.rtf} files were converted into a structured \texttt{DataFrame} format to allow alignment with the traffic data and to facilitate automated prompt generation.
+
+To ensure the correctness of the file-linking process, we additionally extracted the names of cities and villages from the \texttt{.rtf} reports using \textit{classla} tokenization and a predefined list of all city names in Slovenia. We then verified whether these locations appeared in the corresponding traffic data records.
+
+For model training and evaluation, the dataset was partitioned into training (70\%), testing (15\%), and validation (15\%) subsets. Since each entry in the \textit{promet.si} dataset corresponds directly to a specific \texttt{.rtf} file, it was sufficient to split only the set of \texttt{.rtf} files accordingly.
 
 \subsection*{Prompt Engineering}
 
-To generate traffic reports, we consider using a combination of \textit{Role-Based Prompting} and \textit{Few-Shot Prompting}. This approach is particularly suitable because our dataset consists of structured traffic data paired with human-written traffic reports. By assigning the LLM the role of a traffic reporter and providing it with well-structured example reports, we aim to guide the model towards generating high-quality outputs.
+We use the \textit{Few-Shot Prompting} approach for traffic report generation, leveraging structured traffic data paired with human-written examples to guide the model in producing coherent and contextually appropriate outputs.
 
-Before report generation, the model will be given explicit instructions on how to structure the reports, which include:
-\begin{itemize}
-    \item The location of the incident, specifying the affected road and direction.
-    \item The cause of the disruption and its consequences.
-    \item The specific section of the road impacted.
-\end{itemize}
-Additionally, the dataset contains road names that differ from those used in official reports, requiring the model to handle these discrepancies appropriately.
+A key aspect is the prioritization of events based on urgency. The model follows a defined event hierarchy, from most to least critical:
 
-To ensure proper prioritization of events, an event hierarchy must be established, as some incidents are more critical than others. If the model fails to respect this hierarchy, we will experiment with \textit{Chain-of-Thought Prompting} before fine-tuning the model. This technique introduces step-by-step reasoning, helping the model determine which incidents should be reported first.
+\textbf{Wrong-way driver}, 
+\textbf{Closed motorway}, 
+\textbf{Accident with traffic jam on the motorway}, 
+\textbf{Traffic jams due to roadworks (short delays often cause rear-end collisions)}, 
+\textbf{Main/regional road closure due to an accident}, 
+\textbf{Other accidents}, 
+\textbf{Broken-down vehicles blocking lanes}, 
+\textbf{Animal on the roadway}, 
+\textbf{Object or spilled cargo on the motorway}, 
+\textbf{Risky roadworks (e.g., closed lanes near/in tunnels)}, and 
+\textbf{Traffic jams before Karavanke tunnel or border crossings}.
 
-\section*{Data Analysis}
 
-\subsection*{Reports Data From \textit{promet.si}}
-The primary dataset is the traffic\_reports\_2022\_2023\_2024.xlsx file from the \textit{promet.si} portal, which contains 170,823 traffic reports from the years 2022, 2023, and 2024, organized into 27 attributes, as illustrated in ~Figure \ref{fig:traffic_reports_analysis}, following with their descriptions. From these report data, LLM should be able to generate final report shown in the next subsection.
+
+\subsection*{Few-shot Prompting}
+%For few-shot prompting, we constructed prompts by combining relevant data into an example input for one test sample, the information extracted from the structured traffic data and the content of the corresponding \texttt{.rtf} files \textbf{do not align}. 
+
+%To verify the cause of this mismatch, we manually cross-checked several rows in the \texttt{.xlsx} file with their corresponding \texttt{.rtf} files using the report dates as a reference. Based on this inspection, we concluded that the issue does not stem from an error in our data-linking process, but rather from inconsistencies in the provided datasets. \textbf{We assume that additional, untracked data sources were used in the creation of the this \texttt{.rtf} reports.}
+
+%For few-shot prompting we havee given input data to generate report form it and three examples of combined input data samples with provided reports from \texttt{.rtf} files.
+
+%For the few-shot prompting setup, we constructed prompts by combining relevant information extracted from structured traffic data and the corresponding \texttt{.rtf} report files into example inputs. However, we observed that in many cases, the content of the structured data and the corresponding \texttt{.rtf} reports \textbf{do not align}.
+
+%To investigate the source of this discrepancy, we manually cross-checked several rows from the \texttt{.xlsx} file with their corresponding \texttt{.rtf} files, using the report dates as a reference point. Based on this analysis, we concluded that the mismatch is not due to an error in our data-linking process, but rather to inconsistencies within the provided datasets. \textbf{We assume that additional, untracked data sources were used in the creation of these \texttt{.rtf} reports.}
+
+%For few-shot prompting, we provided the model with structured input data and three example pairs, each consisting of a combined data sample and its corresponding human-written report extracted from the \texttt{.rtf} files.
+
+For few-shot prompting, we created example inputs by combining structured traffic data with corresponding \texttt{.rtf} reports. However, in many cases, the content of the two sources \textbf{did not align}.
+
+To investigate this mismatch, we manually compared several entries using report dates and found no errors in our linking process. Instead, we concluded that the \texttt{.rtf} reports were likely created using additional, untracked data sources.
+
+We ultimately provided the model with structured inputs and three example prompt–response pairs based on human-written reports from the \texttt{.rtf} files.
+
+
+\subsection*{Fine-tuning}
+
+To fine-tune the language model for our specific task, we utilized the \textit{GaMS-9B-Instruct} model in combination with the Low-Rank Adaptation (LoRA) technique. LoRA enables efficient parameter updates by introducing a small set of trainable parameters into the model architecture. This significantly reduces both computational and memory requirements, while still maintaining strong performance on downstream tasks.
+
+We applied supervised fine-tuning (SFT) to adapt the model for traffic report generation. To facilitate this, we constructed a custom dataset composed of prompt-response pairs. Each prompt was generated by converting structured traffic data into a natural language format, while the corresponding response was extracted from human-written reference reports (\texttt{.rtf} files). This approach allowed the model to learn how to produce fluent, contextually relevant traffic reports from structured input data.
+
+Two versions of the fine-tuned model were developed. The first was trained on the original dataset, consisting of structured traffic data paired with human-written reports, as described earlier. The second model was trained on a synthetic dataset, in which the responses were generated using Google's \textit{Gemini} language model, based on the same structured inputs. This dual setup enabled a comparative evaluation of models trained on human-written versus AI-generated outputs, helping to assess the viability of synthetic data for supervised fine-tuning in this application domain.
+
+\subsection*{Evaluation}
+
+For evaluation, we selected \textit{BERTScore}, a metric that assesses the similarity between two texts based on their semantic content. In our case, it compares the reference report with the report generated by the large language model (LLM). We chose this metric because it utilizes contextual embeddings from pretrained language models, enabling it to capture nuanced semantic similarities beyond simple lexical overlap. As part of the evaluation, we report the BERTScore precision, recall, and F1 score.
+
+
+%\begin{quote}
+%\textbf{Vhodni podatki:}
+%\begin{itemize}
+%    \item \textbf{Manj pomembne informacije o prometu:} Na avtocesti od Sežane proti Mariboru, do Slovenskih Konjic, pelje izredni prevoz. Občasno je lahko promet oviran in upočasnjen. Čakalna doba je na mejnem prehodu Obrežje. Zaradi praznikov bo po Sloveniji v nedeljo, 1. 5., in v ponedeljek, 2. 5., med 8. in 22. uro, veljala omejitev prometa tovornih vozil, katerih največja dovoljena masa presega 7,5 t.
+%    \item \textbf{Informacije o opozorilih:} Na avtocesti od Sežane proti Mariboru, do Slovenskih Konjic, pelje izredni prevoz. Občasno je lahko promet oviran in upočasnjen.
+%    \item \textbf{Informacije o mednarodnih informacijah:} Čakalna doba je na mejnem prehodu Obrežje.
+%    \item \textbf{Splošne informacije:} Zaradi praznikov bo po Sloveniji v nedeljo, 1. 5., in v ponedeljek, 2. 5., med 8. in 22. uro, veljala omejitev prometa tovornih vozil, katerih največja dovoljena masa presega 7,5 t.
+%\end{itemize}
+
+%\textbf{Poročilo:}\\
+%Prometne informacije -- 30. 04. 2022, 18:30, 1. in 2. program.\\
+%Zaradi prometne nesreče je zaprta regionalna cesta Ajševica–Rožna Dolina, in to pri Ajševici. Na mejnem prehodu Obrežje vozniki na vstop v državo čakajo do dve uri, v Gruškovju pa pol ure. Povečan promet pri izstopu iz države pa je na prehodu Dobovec, na katerem vozniki čakajo uro in pol, ter na Obrežju in v Gruškovju, v katerem vozniki čakajo pol ure.
+%\end{quote}
+
+
+%\begin{figure}[ht]\centering
+%	\includegraphics[width=\linewidth]{fig/traffic_reports_analysis.pdf}
+%	\caption{Project's primary dataset visualization.}
+%	\label{fig:traffic_reports_analysis}
+%\end{figure}
+
+%\begin{description}
+%\item [LegacyId] Unique numerical identifier for the traffic report.
+%\item [\textcolor{SkyBlue}{Datum}] Timestamp of when the traffic report was logged.
+%\item [Operater] Name and affiliation of the traffic report operator.
+%\item [\textcolor{SkyBlue}{A1}] Very important traffic alert message in Slovenian.
+%\item [\textcolor{SkyBlue}{B1}] Important traffic information in Slovenian.
+%\item [C1] Less important information in Slovenian.
+%\item [A2, B2, C2] English versions of A1, B1, C1.
+%\item [Title+\textcolor{SkyBlue}{ContentPomembnoSLO}] Title and content of important Slovenian traffic information.
+%\item [Title+\textcolor{SkyBlue}{ContentNesreceSLO}] Title and content related to road accidents.
+%\item [Title+\textcolor{SkyBlue}{ContentZastojiSLO}] Title and content describing traffic congestion or delays.
+%\item [Title+\textcolor{SkyBlue}{ContentVremeSLO}] Title and content related to weather conditions or weather-related traffic impacts.
+%\item [Title+\textcolor{SkyBlue}{ContentOvireSLO}] Title and content concerning traffic obstacles (vehicle breakdowns, road hazards).
+%\item [Title+\textcolor{SkyBlue}{ContentDeloNaCestiSLO}] Title and content related to roadworks or construction affecting traffic.
+%\item [Title+\textcolor{SkyBlue}{ContentOpozorilaSLO}] Title and content containing public warnings, announcements, or safety reminders.
+%\item [Title+\textcolor{SkyBlue}{ContentMednarodneInformacijeSLO}] Title and content regarding international or cross-border traffic information.
+%\item [Title+\textcolor{SkyBlue}{ContentSplosnoSLO}] Title and content of general traffic information not covered by other specific categories.
+%\end{description}
+
+%\subsection*{Final Reports From RTV Slovenija}
+%The second important dataset consists of 28,037 \texttt{.rtf} files, each containing desired output reports from RTV Slovenija, collected monthly throughout the years 2022, 2023, and 2024. An example of such a report is shown below:
+
+%\begin{quote}
+%\textbf{NOVE prometne informacije} \hfill \textit{31. 01. 2022 \quad 18:30 \quad 1. in 3. program}
+
+%\vspace{0.5em}
+%\noindent Podatki o prometu.\\
+%Zaradi zdrsa tovornih vozil promet poteka izmenično enosmerno na glavni cesti Novo mesto -- Metlika pri Vahti ter na regionalni cesti Soteska -- Črmošnjice -- Črnomelj pri Starih Žagah.\\
+%Na mejnih prehodih Gruškovje in Obrežje vozniki tovornih vozil na vstop v državo čakajo eno uro.\\
+%Na hrvaški strani mejnega prehoda Babno Polje je prepovedan promet za priklopnike in polpriklopnike.\\
+%Ponekod na Dolenjskem sneži. Predvsem na območju med Novim mestom, Kočevjem in Črnomljem se sneg oprijema vozišča. Tudi drugod po državi so ceste mokre in spolzke, lahko tudi poledenele. Vozite previdno, prilagodite hitrost in povečajte varnostno razdaljo.
+%\end{quote}
+
+%\noindent
+%In addition, we also received guidelines from RTV Slovenija on how the reports should be properly structured — including conventions on road naming, sentence ordering by priority, and other formatting details.
+
+
+%------------------------------------------------
+
+
+\section*{Results}
+
+After analyzing the dataset, we decided to remove attributes that were either irrelevant or consistently empty. These attributes did not contribute meaningful information for traffic report generation. We retained only the attributes that contained substantial content and were largely non-empty. As illustrated in the figure~\ref{fig:traffic_reports_analysis} below, several attributes were clearly irrelevant or sparsely populated.
 
 \begin{figure}[ht]\centering
 	\includegraphics[width=\linewidth]{fig/traffic_reports_analysis.pdf}
@@ -120,76 +253,40 @@ The primary dataset is the traffic\_reports\_2022\_2023\_2024.xlsx file from the
 	\label{fig:traffic_reports_analysis}
 \end{figure}
 
-\begin{description}
-\item [LegacyId] Unique numerical identifier for the traffic report.
-\item [\textcolor{SkyBlue}{Datum}] Timestamp of when the traffic report was logged.
-\item [Operater] Name and affiliation of the traffic report operator.
-\item [\textcolor{SkyBlue}{A1}] Very important traffic alert message in Slovenian.
-\item [\textcolor{SkyBlue}{B1}] Important traffic information in Slovenian.
-\item [C1] Less important information in Slovenian.
-\item [A2, B2, C2] English versions of A1, B1, C1.
-\item [Title+\textcolor{SkyBlue}{ContentPomembnoSLO}] Title and content of important Slovenian traffic information.
-\item [Title+\textcolor{SkyBlue}{ContentNesreceSLO}] Title and content related to road accidents.
-\item [Title+\textcolor{SkyBlue}{ContentZastojiSLO}] Title and content describing traffic congestion or delays.
-\item [Title+\textcolor{SkyBlue}{ContentVremeSLO}] Title and content related to weather conditions or weather-related traffic impacts.
-\item [Title+\textcolor{SkyBlue}{ContentOvireSLO}] Title and content concerning traffic obstacles (vehicle breakdowns, road hazards).
-\item [Title+\textcolor{SkyBlue}{ContentDeloNaCestiSLO}] Title and content related to roadworks or construction affecting traffic.
-\item [Title+\textcolor{SkyBlue}{ContentOpozorilaSLO}] Title and content containing public warnings, announcements, or safety reminders.
-\item [Title+\textcolor{SkyBlue}{ContentMednarodneInformacijeSLO}] Title and content regarding international or cross-border traffic information.
-\item [Title+\textcolor{SkyBlue}{ContentSplosnoSLO}] Title and content of general traffic information not covered by other specific categories.
-\end{description}
 
-\subsection*{Final Reports From RTV Slovenija}
-The second important dataset consists of 28,037 \texttt{.rtf} files, each containing desired output reports from RTV Slovenija, collected monthly throughout the years 2022, 2023, and 2024. An example of such a report is shown below:
+After fine-tuning several models, we evaluated their performance on the test dataset using \textit{BERTScore}, which provides precision, recall, and F1 score metrics. As shown in Table~\ref{tab:results}, \textit{Gemini} outperformed \textit{GaMS-9B-Instruct}, which aligns with our expectations given \textit{Gemini}'s larger size and greater number of parameters.
 
-\begin{quote}
-\textbf{NOVE prometne informacije} \hfill \textit{31. 01. 2022 \quad 18:30 \quad 1. in 3. program}
+A noteworthy observation is that both fine-tuned models performed worse than the base \textit{GaMS-9B-Instruct} model. We attribute this to the poor quality of the training data, which often contained irrelevant information or lacked critical details that were present in the corresponding human-written reports but missing from the structured input. As a result, the model struggled to learn the appropriate relationships between the input features and the expected output.
 
-\vspace{0.5em}
-\noindent Podatki o prometu.\\
-Zaradi zdrsa tovornih vozil promet poteka izmenično enosmerno na glavni cesti Novo mesto -- Metlika pri Vahti ter na regionalni cesti Soteska -- Črmošnjice -- Črnomelj pri Starih Žagah.\\
-Na mejnih prehodih Gruškovje in Obrežje vozniki tovornih vozil na vstop v državo čakajo eno uro.\\
-Na hrvaški strani mejnega prehoda Babno Polje je prepovedan promet za priklopnike in polpriklopnike.\\
-Ponekod na Dolenjskem sneži. Predvsem na območju med Novim mestom, Kočevjem in Črnomljem se sneg oprijema vozišča. Tudi drugod po državi so ceste mokre in spolzke, lahko tudi poledenele. Vozite previdno, prilagodite hitrost in povečajte varnostno razdaljo.
-\end{quote}
+Another issue we encountered was that the fine-tuned models tended to mimic the structure of the input data in their outputs, despite being provided with explicit instructions on how the generated reports should be formatted.
 
-\noindent
-In addition, we also received guidelines from RTV Slovenija on how the reports should be properly structured — including conventions on road naming, sentence ordering by priority, and other formatting details.
-
-\subsection*{Data Preprocessing}
-Due to a substantial amount of missing or irrelevant data, we reduced the number of attributes to those highlighted in \textcolor{SkyBlue}{blue}. Additionally, we introduced a new attribute, \textcolor{SkyBlue}{\textbf{RTF\_file\_name}}, which enables linking each traffic record to its corresponding \texttt{.rtf} file based on the date of the report.
-
-The dataset from \textit{promet.si} required further preprocessing, as many of its values contained embedded HTML content. Similarly, the reports extracted from \texttt{.rtf} files had to be converted into a structured DataFrame format in order to facilitate linking with traffic data and to enable automated prompt generation.
-
-For subsequent model training and evaluation, we partitioned the data into training (70\%), testing (15\%), and validation (15\%) sets. Since each entry in traffic data from \textit{promet.si} corresponds to a specific \texttt{.rtf} file, only the \texttt{.rtf} files needed to be split accordingly.
-
-%------------------------------------------------
-
-\section*{Methods}
+Interestingly, the model fine-tuned on AI-generated reports (produced by \textit{Gemini}) outperformed the one trained on human-written reports. This suggests that the AI-generated responses provided a more consistent mapping between the input data and the expected output, enabling the model to learn the generation task more effectively.
 
 
-\subsection*{Few-shot Prompting}
-For few-shot prompting, we constructed prompts by combining relevant data into an example input for one test sample  As shown on example below this section, the information extracted from the structured traffic data and the content of the corresponding \texttt{.rtf} files \textbf{do not align}. 
+\begin{table}
+    \centering
+    \begin{tabular}{lccc}\toprule
+         Model & Precision & Recall & F1 Score \\\midrule
+         Gams-9B-Instruct         & 0.6195 & 0.6604 & 0.6387 \\
+         Gams-9B + SFT (Human)    & 0.6076 & 0.6397 & 0.6227 \\
+         Gams-9B + SFT (AI)       & 0.6200 & 0.6575 & 0.6375 \\
+         Gemini                   & \textbf{0.7013} & \textbf{0.7397} & \textbf{0.7196} \\\bottomrule
+    \end{tabular}
+    \caption{Evaluation of LLM models.}
+    \label{tab:results}
+\end{table}
 
-To verify the cause of this mismatch, we manually cross-checked several rows in the \texttt{.xlsx} file with their corresponding \texttt{.rtf} files using the report dates as a reference. Based on this inspection, we concluded that the issue does not stem from an error in our data-linking process, but rather from inconsistencies in the provided datasets. \textbf{We assume that additional, untracked data sources were used in the creation of the this \texttt{.rtf} reports.}
 
-An example of a constructed part of few-shot input that informations do not match:
+\section*{Conclusion}
 
-\begin{quote}
-\textbf{Vhodni podatki:}
-\begin{itemize}
-    \item \textbf{Manj pomembne informacije o prometu:} Na avtocesti od Sežane proti Mariboru, do Slovenskih Konjic, pelje izredni prevoz. Občasno je lahko promet oviran in upočasnjen. Čakalna doba je na mejnem prehodu Obrežje. Zaradi praznikov bo po Sloveniji v nedeljo, 1. 5., in v ponedeljek, 2. 5., med 8. in 22. uro, veljala omejitev prometa tovornih vozil, katerih največja dovoljena masa presega 7,5 t.
-    \item \textbf{Informacije o opozorilih:} Na avtocesti od Sežane proti Mariboru, do Slovenskih Konjic, pelje izredni prevoz. Občasno je lahko promet oviran in upočasnjen.
-    \item \textbf{Informacije o mednarodnih informacijah:} Čakalna doba je na mejnem prehodu Obrežje.
-    \item \textbf{Splošne informacije:} Zaradi praznikov bo po Sloveniji v nedeljo, 1. 5., in v ponedeljek, 2. 5., med 8. in 22. uro, veljala omejitev prometa tovornih vozil, katerih največja dovoljena masa presega 7,5 t.
-\end{itemize}
+Throughout the course of this project, we observed that data analysis and preprocessing are among the most critical components of training large language models (LLMs). Poor data quality can significantly degrade model performance, as evidenced by the inferior results of fine-tuned models compared to the base \textit{GaMS-9B-Instruct} model. To mitigate this, the dataset should be enhanced by incorporating additional relevant information from external sources.
 
-\textbf{Poročilo:}\\
-Prometne informacije -- 30. 04. 2022, 18:30, 1. in 2. program.\\
-Zaradi prometne nesreče je zaprta regionalna cesta Ajševica–Rožna Dolina, in to pri Ajševici. Na mejnem prehodu Obrežje vozniki na vstop v državo čakajo do dve uri, v Gruškovju pa pol ure. Povečan promet pri izstopu iz države pa je na prehodu Dobovec, na katerem vozniki čakajo uro in pol, ter na Obrežju in v Gruškovju, v katerem vozniki čakajo pol ure.
-\end{quote}
+Prompt engineering also plays a crucial role in the training process. Using well-structured input data aligned with compatible human-written reports can lead to substantial improvements in model output quality.
 
-For future work, the first priority is to align and clean the data to ensure that prompt engineering with the GaMS large language model is feasible. Once this is achieved, we plan to experiment with and evaluate various prompt engineering strategies described in the paragraph Related Work and Existing Solutions, time permitting.
+As expected, \textit{Gemini} outperformed \textit{GaMS-9B-Instruct}, likely due to its larger model size and higher number of parameters. This demonstrates that leveraging stronger LLMs such as \textit{Gemini}, can enhance the training process of other models by generating high-quality synthetic data for supervised fine-tuning.
+
+Currently, large language models (LLMs) like \textit{Gemini}, \textit{ChatGPT}, and \textit{DeepSeek} outperform Slovenian models such as \textit{GaMS-9B-Instruct}. Fine-tuning these models could lead to better, more consistent results and has the potential to replace human workers in certain tasks.
+
 
 
 \begin{comment}
